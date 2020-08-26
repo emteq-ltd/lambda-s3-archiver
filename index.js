@@ -7,6 +7,12 @@ const { PassThrough } = require('stream');
 const s3 = new aws.S3();
 
 /*
+ * @callback s3FileNameTransform
+ * @param {s3File} - The fully qualified S3 object key
+ * @return {string} - The custom formatted file name
+ */
+ 
+/*
  * This nodejs module will read and archive files in AWS S3 bucket using stream, and store the archived file in S3 as well..
  * @param {sourceBucket} - the S3 bucket containing the files to archive
  * @param {sourcePath} - the S3 prefix/path containing the files to archive
@@ -15,6 +21,9 @@ const s3 = new aws.S3();
  * @param {outputFilename} - the filename of the archive file. Default to 'archive'.
  * @param {outputFormat} - the format of the archive file (zip | tar). Default to 'zip'.
  * @param {uploadOptions} - additional options passed to s3.upload https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#upload-property
+ * @param {Object} archiverOptions - options to configure how files are added to the archiver
+ * @param {s3FileNameTransform} archiverOptions.s3FileNameTransform - callback to apply to each file key to generate custom file names for the final archive
+ *
  * @return {object} - a JSON object containing the details of the archive file.
     {
         s3Bucket: 's3-bucket-name',
@@ -22,7 +31,15 @@ const s3 = new aws.S3();
         fileSize: 1024
     }
  */
-const archive = (sourceBucket, sourcePath, sourceFiles = [], outputFilename = 'archive', outputFormat = 'zip', uploadOptions = {}) => {
+const archive = (
+  sourceBucket,
+  sourcePath,
+  sourceFiles = [],
+  outputFilename = 'archive',
+  outputFormat = 'zip',
+  uploadOptions = {},
+  archiverOptions = {},
+) => {
     return new Promise(async (resolve, reject) => {
         try {
             const format = (['zip', 'tar'].includes(outputFormat.toLowerCase()) ? outputFormat : 'zip');
@@ -63,17 +80,22 @@ const archive = (sourceBucket, sourcePath, sourceFiles = [], outputFilename = 'a
                     sourceFiles = sourceFiles.concat(s3Objects.Contents.map(content => { return content.Key; }).filter(k => k != `${sourcePath}/`));
                     console.log(`Found ${sourceFiles.length} files in ${sourcePath}`);
                     if (!s3Objects.IsTruncated) {
-                        break;    
+                        break;
                     }
                 }
 
                 console.log(`Found ${sourceFiles.length} total files in ${sourcePath}`);
             }
 
-            console.log(sourceFiles);
+            console.log('Working with source files:', sourceFiles);
+
             for (let s3File of sourceFiles) {
                 let fileReadStream = s3.getObject({ Bucket: sourceBucket, Key: s3File }).createReadStream();
-                streamArchiver.append(fileReadStream, { name: s3File.substring(s3File.lastIndexOf("/") + 1) });
+                const s3FileName = archiverOptions.s3FileNameTransform
+                  ? archiverOptions.s3FileNameTransform(s3File)
+                  : s3File.substring(s3File.lastIndexOf("/") + 1);
+
+                streamArchiver.append(fileReadStream, { name: s3FileName })
             }
 
             streamArchiver.finalize();
