@@ -10,9 +10,9 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/francismeynard/lambda-s3-archiver.git"
+        "url": "git+https://github.com/emteq-ltd/lambda-s3-archiver.git"
     },
-    "homepage": "https://github.com/francismeynard/lambda-s3-archiver#readme",
+    "homepage": "https://github.com/emteq-ltd/lambda-s3-archiver#readme",
     "keywords": [
         "aws",
         "lambda",
